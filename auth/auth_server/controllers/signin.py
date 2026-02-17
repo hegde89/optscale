@@ -98,7 +98,10 @@ class GoogleOauth2Provider:
 class MicrosoftOauth2Provider:
     def __init__(self):
         self._client_id = os.environ.get('MICROSOFT_OAUTH_CLIENT_ID')
-        self.config_url = ("https://login.microsoftonline.com/common/v2.0/."
+        self._tenant_id = os.environ.get('MICROSOFT_OAUTH_TENANT_ID')
+        if not self._tenant_id:
+            raise ForbiddenException(Err.OA0012, [])
+        self.config_url = (f"https://login.microsoftonline.com/{self._tenant_id}/v2.0/"
                            "well-known/openid-configuration")
 
     def client_id(self):
@@ -133,7 +136,7 @@ class MicrosoftOauth2Provider:
         except KeyError:
             raise InvalidAuthorizationToken(f'invalid headers: {headers}')
 
-    def get_azure_data(self, tenant_id=None):
+    def get_azure_data(self):
         resp = requests.get(self.config_url, timeout=30)
         if not resp.ok:
             raise AzureVerifyTokenError(
@@ -146,7 +149,7 @@ class MicrosoftOauth2Provider:
                 f'Received malformed response from {self.config_url}')
         try:
             issuer = config_map['issuer'].format(
-                tenantid=tenant_id) if tenant_id else None
+                tenantid=self._tenant_id)
             jwks_uri = config_map['jwks_uri']
         except KeyError:
             raise AzureVerifyTokenError(f'Invalid config map: {config_map}')
@@ -181,9 +184,9 @@ class MicrosoftOauth2Provider:
 
     def verify(self, token, **kwargs):
         try:
-            tenant_id = kwargs.pop('tenant_id', None)
+            check_kwargs_is_empty(**kwargs)
             kid, alg = self.get_token_info(token)
-            azure_data = self.get_azure_data(tenant_id)
+            azure_data = self.get_azure_data()
             public_key = self.get_public_key(kid, azure_data['jwks'])
 
             result = jwt.decode(token, public_key,
@@ -224,10 +227,9 @@ class SignInController(BaseController):
         token = pop_or_raise(input_, 'token')
         check_string_attribute('token', token, max_length=65536)
         ip = input_.pop('ip', None)
-        tenant_id = input_.pop('tenant_id', None)
         redirect_uri = input_.pop('redirect_uri', None)
         check_kwargs_is_empty(**input_)
-        return provider, token, ip, tenant_id, redirect_uri
+        return provider, token, ip, redirect_uri
 
     @staticmethod
     def _get_verifier_class(provider):
@@ -243,13 +245,12 @@ class SignInController(BaseController):
         ) for _ in range(33))
 
     def signin(self, **kwargs):
-        provider, token, ip, tenant_id, redirect_uri = self._get_input(
-            **kwargs)
+        provider, token, ip, redirect_uri = self._get_input(**kwargs)
         verifier_class = self._get_verifier_class(provider)
         if not verifier_class:
             raise WrongArgumentsException(Err.OA0067, [provider])
         email, display_name = verifier_class().verify(
-            token, tenant_id=tenant_id, redirect_uri=redirect_uri)
+            token, redirect_uri=redirect_uri)
         user = self.user_ctl.get_user_by_email(email)
         register = user is None
         if not user:

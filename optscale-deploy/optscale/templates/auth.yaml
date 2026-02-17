@@ -64,4 +64,6 @@ spec:
           value: {{ $config.google_oauth_client_secret | quote }}
         - name: MICROSOFT_OAUTH_CLIENT_ID
           value: {{ $config.microsoft_oauth_client_id | quote }}
+        - name: MICROSOFT_OAUTH_TENANT_ID
+          value: {{ $config.microsoft_oauth_tenant_id | quote }}
 {{ include "ready_probe" $config | indent 8 }}
