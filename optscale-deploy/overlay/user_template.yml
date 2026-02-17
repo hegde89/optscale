@@ -89,12 +89,14 @@ auth:
   google_oauth_client_id: ""
   google_oauth_client_secret: ""
   microsoft_oauth_client_id: ""
+  microsoft_oauth_tenant_id: ""
 
 ngui:
   env:
     build_mode: ""
     google_oauth_client_id: ""
     microsoft_oauth_client_id: ""
+    microsoft_oauth_tenant_id: ""
     google_map_api_key: ""
     ganalytics_id: ""
     hotjar_id: ""
