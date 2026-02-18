@@ -163,7 +163,7 @@ class Organization(Base, MutableMixin, ValidatorMixin, CreatedMixin):
     is_demo = Column(NullableBool('is_demo'), nullable=False, default=False,
                      info=ColumnPermissions.create_only)
     currency = Column(NotWhiteSpaceString('currency'), nullable=False,
-                      info=ColumnPermissions.full, default='USD')
+                      info=ColumnPermissions.full, default='EUR')
     cleaned_at = Column(NullableInt('cleaned_at'), default=0, nullable=False,
                         info=ColumnPermissions.update_only)
     disabled = Column(NullableBool('disabled'), nullable=False,
