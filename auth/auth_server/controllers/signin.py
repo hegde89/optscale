@@ -102,7 +102,7 @@ class MicrosoftOauth2Provider:
         if not self._tenant_id:
             raise ForbiddenException(Err.OA0012, [])
         self.config_url = (f"https://login.microsoftonline.com/{self._tenant_id}/v2.0/"
-                           "well-known/openid-configuration")
+                           ".well-known/openid-configuration")
 
     def client_id(self):
         if not self._client_id:
