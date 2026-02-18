@@ -30,7 +30,6 @@ export type Mutation = {
 export type MutationSignInArgs = {
   provider: Scalars["String"]["input"];
   redirectUri?: InputMaybe<Scalars["String"]["input"]>;
-  tenantId?: InputMaybe<Scalars["String"]["input"]>;
   token: Scalars["String"]["input"];
 };
 
