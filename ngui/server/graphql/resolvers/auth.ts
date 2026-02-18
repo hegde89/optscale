@@ -40,8 +40,8 @@ const resolvers: Resolvers = {
     updateUser: async (_, { id, params }, { dataSources }) => {
       return dataSources.auth.updateUser(id, params);
     },
-    signIn: async (_, { provider, token, tenantId, redirectUri }, { dataSources }) => {
-      return dataSources.auth.signIn(provider, token, tenantId, redirectUri);
+    signIn: async (_, { provider, token, redirectUri }, { dataSources }) => {
+      return dataSources.auth.signIn(provider, token, redirectUri);
     }
   }
 };

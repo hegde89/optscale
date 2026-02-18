@@ -99,9 +99,9 @@ const AuthorizationContainer = () => {
     );
   };
 
-  const handleThirdPartySignIn = async ({ provider, token: thirdPartyToken, tenantId, redirectUri }) => {
+  const handleThirdPartySignIn = async ({ provider, token: thirdPartyToken, redirectUri }) => {
     const { data } = await signIn({
-      variables: { provider, token: thirdPartyToken, tenantId, redirectUri }
+      variables: { provider, token: thirdPartyToken, redirectUri }
     });
 
     const caveats = macaroon.processCaveats(macaroon.deserialize(data.signIn.token).getCaveats());
