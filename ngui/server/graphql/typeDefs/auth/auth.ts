@@ -33,6 +33,6 @@ export default gql`
     token(email: String!, password: String, code: String): Token
     user(email: String!, password: String!, name: String!): User
     updateUser(id: ID!, params: UpdateUserParams!): Token
-    signIn(provider: String!, token: String!, tenantId: String, redirectUri: String): Token
+    signIn(provider: String!, token: String!, redirectUri: String): Token
   }
 `;

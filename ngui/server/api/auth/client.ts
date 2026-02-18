@@ -63,12 +63,11 @@ class AuthClient extends BaseClient {
     };
   }
 
-  async signIn(provider, token, tenantId, redirectUri) {
+  async signIn(provider, token, redirectUri) {
     const result = await this.post("signin", {
       body: {
         provider,
         token,
-        tenant_id: tenantId,
         redirect_uri: redirectUri,
       },
     });

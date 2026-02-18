@@ -7,8 +7,8 @@ import { microsoftOAuthConfiguration } from "utils/integrations";
 
 const handleClick = async (instance, callback) => {
   try {
-    const { tenantId, idToken } = await instance.loginPopup({ prompt: "select_account" });
-    callback({ provider: AUTH_PROVIDERS.MICROSOFT, token: idToken, tenantId });
+    const { idToken } = await instance.loginPopup({ prompt: "select_account" });
+    callback({ provider: AUTH_PROVIDERS.MICROSOFT, token: idToken });
   } catch (error) {
     console.log("Microsoft login failure ", error);
   }
