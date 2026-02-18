@@ -184,6 +184,8 @@ class MicrosoftOauth2Provider:
 
     def verify(self, token, **kwargs):
         try:
+            # redirect_uri is Google-specific, not used by Microsoft
+            kwargs.pop('redirect_uri', None)
             check_kwargs_is_empty(**kwargs)
             kid, alg = self.get_token_info(token)
             azure_data = self.get_azure_data()
