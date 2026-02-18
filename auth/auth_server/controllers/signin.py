@@ -115,7 +115,10 @@ class MicrosoftOauth2Provider:
         return key
 
     def decode_value(self, val):
-        decoded = base64.urlsafe_b64decode(self.ensure_bytes(val) + b'==')
+        val_bytes = self.ensure_bytes(val)
+        # Correct base64url padding: need (4 - len % 4) % 4 '=' chars
+        padding = (4 - len(val_bytes) % 4) % 4
+        decoded = base64.urlsafe_b64decode(val_bytes + b'=' * padding)
         return int.from_bytes(decoded, 'big')
 
     def rsa_pem_from_jwk(self, jwk):
@@ -137,7 +140,11 @@ class MicrosoftOauth2Provider:
             raise InvalidAuthorizationToken(f'invalid headers: {headers}')
 
     def get_azure_data(self):
-        resp = requests.get(self.config_url, timeout=30)
+        try:
+            resp = requests.get(self.config_url, timeout=30)
+        except requests.exceptions.RequestException as ex:
+            raise AzureVerifyTokenError(
+                f'Network error fetching {self.config_url}: {ex}') from ex
         if not resp.ok:
             raise AzureVerifyTokenError(
                 f'Received {resp.status_code} response '
@@ -154,7 +161,11 @@ class MicrosoftOauth2Provider:
         except KeyError:
             raise AzureVerifyTokenError(f'Invalid config map: {config_map}')
 
-        resp = requests.get(jwks_uri, timeout=30)
+        try:
+            resp = requests.get(jwks_uri, timeout=30)
+        except requests.exceptions.RequestException as ex:
+            raise AzureVerifyTokenError(
+                f'Network error fetching {jwks_uri}: {ex}') from ex
         if not resp.ok:
             raise AzureVerifyTokenError(
                 f'Received {resp.status_code} response code from {jwks_uri}')
@@ -165,6 +176,10 @@ class MicrosoftOauth2Provider:
                 f'Received malformed response from {jwks_uri}')
         return {
             'issuer': issuer,
+            'issuers': [
+                issuer,
+                f'https://sts.windows.net/{self._tenant_id}/'
+            ],
             'jwks': jwks,
             'aud': [self.client_id()]
         }
@@ -190,17 +205,47 @@ class MicrosoftOauth2Provider:
             kid, alg = self.get_token_info(token)
             azure_data = self.get_azure_data()
             public_key = self.get_public_key(kid, azure_data['jwks'])
-
-            result = jwt.decode(token, public_key,
-                                audience=azure_data['aud'],
-                                issuer=azure_data['issuer'],
-                                algorithms=[alg])
-            email = result['preferred_username']
+            LOG.debug('Decoding Microsoft token with issuer: %s, aud: %s, alg: %s',
+                      azure_data['issuer'], azure_data['aud'], alg)
+            # Try each valid issuer (v2.0 and legacy v1.0 sts.windows.net)
+            last_exc = None
+            result = None
+            for issuer in azure_data['issuers']:
+                try:
+                    result = jwt.decode(token, public_key,
+                                        audience=azure_data['aud'],
+                                        issuer=issuer,
+                                        algorithms=[alg])
+                    break
+                except jwt.InvalidIssuerError as ex:
+                    last_exc = ex
+                    continue
+            if result is None:
+                raise jwt.InvalidIssuerError(
+                    f'No matching issuer. Tried: {azure_data["issuers"]}') from last_exc
+            # preferred_username may be absent for guest/B2B accounts
+            email = (result.get('preferred_username') or
+                     result.get('email') or
+                     result.get('upn'))
+            if not email:
+                raise InvalidAuthorizationToken(
+                    'no email claim (preferred_username/email/upn) in token')
             name = result.get('name', email)
             return email, name
-        except (InvalidAuthorizationToken, AzureVerifyTokenError,
-                jwt.PyJWTError) as ex:
-            LOG.error(str(ex))
+        except (InvalidAuthorizationToken, AzureVerifyTokenError) as ex:
+            LOG.error('Microsoft token verification error: %s', str(ex))
+            raise ForbiddenException(Err.OA0012, [])
+        except jwt.ExpiredSignatureError as ex:
+            LOG.error('Microsoft JWT token expired: %s', str(ex))
+            raise ForbiddenException(Err.OA0012, [])
+        except jwt.InvalidIssuerError as ex:
+            LOG.error('Microsoft JWT issuer mismatch: %s', str(ex))
+            raise ForbiddenException(Err.OA0012, [])
+        except jwt.InvalidAudienceError as ex:
+            LOG.error('Microsoft JWT audience mismatch: %s', str(ex))
+            raise ForbiddenException(Err.OA0012, [])
+        except jwt.PyJWTError as ex:
+            LOG.error('Microsoft JWT error (%s): %s', type(ex).__name__, str(ex))
             raise ForbiddenException(Err.OA0012, [])
 
 
